@@ -6,6 +6,8 @@ matrix:
   fast_finish: true
 script:
 - npm run test-ci
+services:
+- redis
 deploy:
   provider: elasticbeanstalk
   access_key_id: AKIAIK3VJNHMTXBICCWQ
@@ -13,7 +15,7 @@ deploy:
     secure: cVrjg+PCgrzko3iJXJQ8ST5mq38o48pnSJJMjGU3MSqtqtewTUjuwk5D29YBGu9TGYssa+DF4SxoHT9tL/xkQNVt89qmbm68PQZzfSCS8kvsyuvyHQ2ECqBpY2HRyvbxJoqdKwlV2scANLYyYBHrx7h46WpdUp2lByJlrk8x8OHl4nwlJHof1Sb6CcBz2rPdKFhI3S+mHfUvJy2AJIedf3MMSjf2WZnMOXjFX//LKO5XretiAx3ePeFJSJVgzYyl5tJ9wCcLswWDLraMgJjxotdhNpWuEmqf0sTKYDyHzxw46eKPeML6UqRwk6qAtejbep8PPm0TA4jK+fkHW9QRbgjGTO7eYP44V1DjSiFqDi6vq5bsm0Zv3w+J+kmO7pcp0fSjHzw1//rYYFT8zl9S67UGP7wbSG2kBJFPj1IMKekhnx7G3F6jVI9nQpjsUeBa5vPXxXWUT69Y2+7KnPGPCNzzbXJMTHLJBtZUeq135igd5WBST9rDPgbLLU0bIC2YRJyjWeINFVi0+vFejZbQ6ZDYrmqYOn/utZ+1RAgIqVPRcIyNCeMPpfdaC5jTHJS1eCpnBmR5fpe9H2YyLU9/u7/3223VBBq4FzihqNYJObd1NBhWrNKoxodOo5hNSB6meqbaJIjnb+AkFvU7iVqv6FKYRVbhmdudKdffJ85NDD8=
   region: us-east-1
   app: houseband-api
-  env: houseband-api
+  env: houseband-api-vpc
   bucket_name: elasticbeanstalk-us-east-1-546375621904
   on:
     repo: HouseBand/api

@@ -3,6 +3,12 @@
     // Dependencies
     const restify = require('restify');
     const socketio = require('socket.io');
+    const redis = require('redis');
+    const Promise = require('bluebird');
+
+    // Setup Redis client with promises
+    Promise.promisifyAll(redis.RedisClient.prototype);
+    Promise.promisifyAll(redis.Multi.prototype);
 
     // Configuration
     const port = 8080;
@@ -11,7 +17,14 @@
 
     var server = restify.createServer();
     var io = socketio.listen(server);
-    var sockets = {};
+    var redisClient = redis.createClient({
+        host: process.env.REDIS_HOST,
+        port: process.env.REDIS_PORT
+    });
+
+    redisClient.on("error", function (err) {
+        console.log("Error " + err);
+    });
 
     server.use(restify.CORS());
     server.use(restify.gzipResponse());
@@ -23,6 +36,7 @@
     }));
     server.use(restify.conditionalRequest());
 
+    // Health Check
     server.get('/', function (req, res) {
         res.status(200);
         res.send({
@@ -30,13 +44,70 @@
         });
     });
 
-    var instruments = {
+    var defaultInstruments = {
         drums: false,
         bass: false,
         lead: false,
         rhythm: false
     };
-    server.get('/instruments', function (req, res) {
+
+    server.get('/flush', function (req, res) {
+        redisClient
+            .flushdbAsync()
+            .then(function () {
+                res.status(204);
+                res.end();
+            });
+    });
+
+    server.get('/rooms', function (req, res, next) {
+        redisClient
+            .getAsync('rooms')
+            .then(JSON.parse)
+            .then(function (rooms) {
+                res.send(rooms || []);
+            })
+            .catch(next);
+    });
+    server.post('/rooms/:room', function (req, res, next) {
+        let room = req.params.room;
+        redisClient
+            .getAsync('rooms')
+            .then(JSON.parse)
+            .then(function (rooms) {
+                rooms = rooms || {};
+                if (rooms[room]) {
+                    res.status(412);
+                    return res.send({
+                        name: 'RoomAlreadyExists',
+                        message: 'The room ' + room + ' already exists',
+                        statusCode: 419
+                    })
+                }
+
+                rooms[room] = defaultInstruments;
+
+                return Promise.all([
+                    redisClient.setAsync('rooms:' + room, JSON.stringify(rooms)),
+                    redisClient.setAsync('rooms', JSON.stringify(Object.keys(rooms)))
+                ]).then(function () {
+                    res.status(204);
+                    res.end();
+                });
+            })
+            .catch(next);
+    });
+    server.del('/rooms/:room', function (req, res) {
+        let room = req.params.room;
+        redisClient
+            .getAsync('rooms')
+            .then(JSON.parse)
+            .then(function (rooms) {
+                let roomIndex = rooms.indexOf(room);
+            })
+    });
+
+    server.get('/rooms/:room/instruments', function (req, res) {
         res.status(200);
         res.send(instruments);
     });
