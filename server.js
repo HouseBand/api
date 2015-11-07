@@ -112,6 +112,6 @@
 
     module.exports = {
         server: server,
-        port: port
+        port: process.env.PORT || port
     };
 }());
