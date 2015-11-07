@@ -44,6 +44,7 @@
         });
     });
 
+    var roomNamespaces = {};
     var defaultInstruments = {
         drums: false,
         bass: false,
@@ -92,6 +93,7 @@
                     redisClient.setAsync('rooms:' + roomName, JSON.stringify(defaultInstruments)),
                     redisClient.setAsync('rooms', JSON.stringify(rooms))
                 ]).then(function () {
+                    setupRoom(roomName);
                     res.status(204);
                     res.end();
                 });
@@ -116,6 +118,7 @@
                         res.end();
                     });
                 }
+                teardownNamespace(roomName);
                 res.status(404);
                 res.send({
                     name: 'RoomNotFound',
@@ -180,23 +183,42 @@
                 return redisClient
                     .setAsync('rooms:' + roomName, JSON.stringify(room))
                     .then(function () {
-                        //instrumentSubscriptionChanged(instrumentName, 'reserved');
+                        io.of('/' + roomName).emit('instrument reserved', instrumentName);
+                        io.of('/' + roomName).emit('instruments changed', room);
                         res.status(204);
                         res.end();
                     });
             });
     });
 
-    server.del('/rooms/:room/instruments/:instrument', function (req, res) {
+    server.del('/rooms/:room/instruments/:instrument', function (req, res, next) {
         let roomName = req.params.room;
         var instrumentName = req.params.instrument;
-        redisClient
+        releaseInstrument(roomName, instrumentName)
+            .then(function () {
+                res.status(204);
+                res.end();
+            })
+            .catch(function (reason) {
+                if (reason.statusCode) {
+                    res.status(reason.statusCode);
+                    return res.send(reason);
+                }
+                next(reason);
+            });
+    });
+
+    server.listen(port, function () {
+        console.log('socket.io server listening at %s', server.url);
+    });
+
+    function releaseInstrument(roomName, instrumentName) {
+        return redisClient
             .getAsync('rooms:' + roomName)
             .then(JSON.parse)
             .then(function (room) {
                 if (!room) {
-                    res.status(404);
-                    return res.send({
+                    return Promise.reject({
                         name: 'RoomNotFound',
                         message: 'The room ' + roomName + ' was not found',
                         statusCode: 404
@@ -204,15 +226,13 @@
                 }
 
                 if (!(instrumentName in room)) {
-                    res.status(404);
-                    res.send({
+                    return Promise.reject({
                         name: 'InstrumentNotFound',
                         message: 'The instrument ' + instrumentName + ' was not found',
                         statusCode: 404
                     });
                 } else if (!room[instrumentName]) {
-                    res.status(412);
-                    return res.send({
+                    return Promise.reject({
                         name: 'InstrumentNotReserved',
                         message: 'The instrument ' + instrumentName + ' has not yet been reserved',
                         statusCode: 412
@@ -223,53 +243,41 @@
                 return redisClient
                     .setAsync('rooms:' + roomName, JSON.stringify(room))
                     .then(function () {
-                        //instrumentSubscriptionChanged(instrumentName, 'reserved');
-                        res.status(204);
-                        res.end();
-                    });
+                        io.of('/' + roomName).emit('instrument released', instrumentName);
+                        io.of('/' + roomName).emit('instruments changed', room);
+                    })
+                    .return(room);
             });
-    });
-
-    io.sockets.on('connection', function (socket) {
-        // Keep a reference so that we can notify the sockets on changes.
-        sockets[socket.id] = socket;
-
-        socket.on('reserved instrument', function (instrument) {
-            instruments[instrument] = socket.id;
-        });
-
-        socket.on('disconnect', function () {
-            delete sockets[socket.id];
-            Object.keys(instruments).forEach(function (instrument) {
-                if (instruments[instrument] === socket.id) {
-                    instruments[instrument] = false;
-                    broadcastEvent('instruments changed', instruments);
-                    broadcastEvent('instrument released', instrument);
-                }
-            });
-        });
-
-        Object.keys(instruments).forEach(function (instrument) {
-            socket.on('play ' + instrument, function (sound) {
-                broadcastEvent(instrument + ' played', sound);
-            });
-        });
-    });
-
-    server.listen(port, function () {
-        console.log('socket.io server listening at %s', server.url);
-    });
-
-    function instrumentSubscriptionChanged(instrument, action) {
-        broadcastEvent('instrument ' + action, instrument);
-        broadcastEvent('instruments changed', instruments);
     }
 
-    function broadcastEvent(name, data) {
-        Object.keys(sockets).forEach(function (socketId) {
-            let socket = sockets[socketId];
-            socket.emit(name, data);
+    function setupRoom(roomName) {
+        let socketInstruments = {};
+        let nsp = io.of('/' + roomName);
+        nsp.on('connection', function (socket) {
+
+            socket.on('reserved instrument', function (instrument) {
+                socketInstruments[socket.id] = instrument;
+            });
+
+            socket.on('disconnect', function () {
+                // If the socket that disconnected has an instrument, release it
+                if (socketInstruments[socket.id]) {
+                    releaseInstrument(roomName, socketInstruments[socket.id]);
+                    delete socketInstruments[socket.id];
+                }
+            });
+
+            Object.keys(defaultInstruments).forEach(function (instrument) {
+                socket.on('play ' + instrument, function (sound) {
+                    io.of('/' + roomName).emit(instrument + ' played', sound);
+                });
+            });
         });
+    }
+
+    function teardownNamespace(namespace) {
+        delete io.nsps['/' + namespace];
+        delete roomNamespaces[namespace];
     }
 
     module.exports = {
