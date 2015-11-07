@@ -70,26 +70,27 @@
             .catch(next);
     });
     server.post('/rooms/:room', function (req, res, next) {
-        let room = req.params.room;
+        let roomName = req.params.room;
         redisClient
             .getAsync('rooms')
             .then(JSON.parse)
             .then(function (rooms) {
-                rooms = rooms || {};
-                if (rooms[room]) {
-                    res.status(412);
+                rooms = rooms || [];
+
+                if (rooms.indexOf(roomName) >= 0) {
+                    res.status(419);
                     return res.send({
                         name: 'RoomAlreadyExists',
-                        message: 'The room ' + room + ' already exists',
+                        message: 'The room ' + roomName + ' already exists',
                         statusCode: 419
                     })
                 }
 
-                rooms[room] = defaultInstruments;
+                rooms.push(roomName);
 
                 return Promise.all([
-                    redisClient.setAsync('rooms:' + room, JSON.stringify(rooms)),
-                    redisClient.setAsync('rooms', JSON.stringify(Object.keys(rooms)))
+                    redisClient.setAsync('rooms:' + roomName, JSON.stringify(defaultInstruments)),
+                    redisClient.setAsync('rooms', JSON.stringify(rooms))
                 ]).then(function () {
                     res.status(204);
                     res.end();
@@ -98,50 +99,135 @@
             .catch(next);
     });
     server.del('/rooms/:room', function (req, res) {
-        let room = req.params.room;
+        let roomName = req.params.room;
         redisClient
             .getAsync('rooms')
             .then(JSON.parse)
             .then(function (rooms) {
-                let roomIndex = rooms.indexOf(room);
+                rooms = rooms || [];
+                let roomIndex = rooms.indexOf(roomName);
+                if (roomIndex >= 0) {
+                    rooms.splice(roomIndex, 1);
+                    return Promise.all([
+                        redisClient.delAsync('rooms:' + roomName),
+                        redisClient.setAsync('rooms', JSON.stringify(rooms))
+                    ]).then(function () {
+                        res.status(204);
+                        res.end();
+                    });
+                }
+                res.status(404);
+                res.send({
+                    name: 'RoomNotFound',
+                    message: 'The room ' + roomName + ' was not found',
+                    statusCode: 404
+                });
             })
     });
 
     server.get('/rooms/:room/instruments', function (req, res) {
-        res.status(200);
-        res.send(instruments);
+        let roomName = req.params.room;
+        redisClient
+            .getAsync('rooms:' + roomName)
+            .then(JSON.parse)
+            .then(function (room) {
+                if (!room) {
+                    res.status(404);
+                    return res.send({
+                        name: 'RoomNotFound',
+                        message: 'The room ' + roomName + ' was not found',
+                        statusCode: 404
+                    });
+                }
+
+                res.send(room);
+            });
     });
 
-    server.post('/instruments/:instrument', function (req, res) {
-        var instrument = req.params.instrument;
-        if (!(instrument in instruments)) {
-            res.status(404);
-            res.send({
-                name: 'InstrumentNotFound',
-                message: 'The instrument ' + instrument + ' was not found',
-                statusCode: 404
-            });
-        } else if (instruments[instrument]) {
-            res.status(412);
-            return res.send({
-                name: 'InstrumentNotAvailable',
-                message: 'The instrument ' + instrument + ' has already been reserved',
-                statusCode: 412
-            });
-        }
+    server.post('/rooms/:room/instruments/:instrument', function (req, res) {
+        let roomName = req.params.room;
+        var instrumentName = req.params.instrument;
+        redisClient
+            .getAsync('rooms:' + roomName)
+            .then(JSON.parse)
+            .then(function (room) {
+                if (!room) {
+                    res.status(404);
+                    return res.send({
+                        name: 'RoomNotFound',
+                        message: 'The room ' + roomName + ' was not found',
+                        statusCode: 404
+                    });
+                }
 
-        instruments[instrument] = true;
-        instrumentSubscriptionChanged(instrument, 'reserved');
-        res.status(204);
-        res.end();
+                if (!(instrumentName in room)) {
+                    res.status(404);
+                    res.send({
+                        name: 'InstrumentNotFound',
+                        message: 'The instrument ' + instrumentName + ' was not found',
+                        statusCode: 404
+                    });
+                } else if (room[instrumentName]) {
+                    res.status(412);
+                    return res.send({
+                        name: 'InstrumentNotAvailable',
+                        message: 'The instrument ' + instrumentName + ' has already been reserved',
+                        statusCode: 412
+                    });
+                }
+
+                room[instrumentName] = true;
+                return redisClient
+                    .setAsync('rooms:' + roomName, JSON.stringify(room))
+                    .then(function () {
+                        //instrumentSubscriptionChanged(instrumentName, 'reserved');
+                        res.status(204);
+                        res.end();
+                    });
+            });
     });
 
-    server.del('/instruments/:instrument', function (req, res) {
-        let instrument = req.params.instrument;
-        instruments[instrument] = false;
-        instrumentSubscriptionChanged(instrument, 'released');
-        res.status(204);
-        res.end();
+    server.del('/rooms/:room/instruments/:instrument', function (req, res) {
+        let roomName = req.params.room;
+        var instrumentName = req.params.instrument;
+        redisClient
+            .getAsync('rooms:' + roomName)
+            .then(JSON.parse)
+            .then(function (room) {
+                if (!room) {
+                    res.status(404);
+                    return res.send({
+                        name: 'RoomNotFound',
+                        message: 'The room ' + roomName + ' was not found',
+                        statusCode: 404
+                    });
+                }
+
+                if (!(instrumentName in room)) {
+                    res.status(404);
+                    res.send({
+                        name: 'InstrumentNotFound',
+                        message: 'The instrument ' + instrumentName + ' was not found',
+                        statusCode: 404
+                    });
+                } else if (!room[instrumentName]) {
+                    res.status(412);
+                    return res.send({
+                        name: 'InstrumentNotReserved',
+                        message: 'The instrument ' + instrumentName + ' has not yet been reserved',
+                        statusCode: 412
+                    });
+                }
+
+                room[instrumentName] = false;
+                return redisClient
+                    .setAsync('rooms:' + roomName, JSON.stringify(room))
+                    .then(function () {
+                        //instrumentSubscriptionChanged(instrumentName, 'reserved');
+                        res.status(204);
+                        res.end();
+                    });
+            });
     });
 
     io.sockets.on('connection', function (socket) {
