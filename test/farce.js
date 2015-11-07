@@ -106,6 +106,50 @@
                         });
                 });
         });
+        it('should be notified of an instrument being released', function () {
+            var firstClient = io.connect('http://0.0.0.0:' + app.port, {
+                transports: ['websocket'],
+                'force new connection': true
+            });
+
+            return expect(Promise.all([
+                new Promise(function (resolve) {
+                    firstClient.on('connect', function () {
+                        supertest(app.server)
+                            .post('/instruments/drums')
+                            .expect('')
+                            .expect(204)
+                            .then(function () {
+                                firstClient.emit('reserved instrument', 'drums');
+                                return supertest(app.server)
+                                    .delete('/instruments/drums')
+                                    .expect('')
+                                    .expect(204);
+                            });
+
+                        var firstComplete = false;
+                        firstClient.on('instruments changed', function (instruments) {
+                            expect(instruments).to.deep.equal({
+                                drums: !firstComplete,
+                                bass: false,
+                                lead: false,
+                                rhythm: false
+                            });
+                            if (firstComplete) {
+                                resolve();
+                            }
+                            firstComplete = true;
+                        });
+                    });
+                }),
+                new Promise(function (resolve) {
+                    firstClient.on('instrument released', function (instrument) {
+                        expect(instrument).to.equal('drums');
+                        resolve();
+                    });
+                })
+            ])).to.eventually.be.fulfilled();
+        });
         it('should be notified of an instrument being reserved', function () {
             var firstClient = io.connect('http://0.0.0.0:' + app.port, {
                 transports: ['websocket'],

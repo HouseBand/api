@@ -65,7 +65,7 @@
         }
 
         instruments[instrument] = true;
-        instrumentSubscriptionChanged(instrument);
+        instrumentSubscriptionChanged(instrument, 'reserved');
         res.status(204);
         res.end();
     });
@@ -73,7 +73,7 @@
     server.del('/instruments/:instrument', function (req, res) {
         let instrument = req.params.instrument;
         instruments[instrument] = false;
-        instrumentSubscriptionChanged(instrument);
+        instrumentSubscriptionChanged(instrument, 'released');
         res.status(204);
         res.end();
     });
@@ -102,10 +102,10 @@
         console.log('socket.io server listening at %s', server.url);
     });
 
-    function instrumentSubscriptionChanged(instrument) {
+    function instrumentSubscriptionChanged(instrument, action) {
         Object.keys(sockets).forEach(function (socketId) {
             let socket = sockets[socketId];
-            socket.emit('instrument reserved', instrument);
+            socket.emit('instrument ' + action, instrument);
             socket.emit('instruments changed', instruments);
         });
     }
