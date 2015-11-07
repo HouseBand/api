@@ -135,59 +135,53 @@
             })).to.eventually.be.fulfilled();
         });
         it('should be notified of a user with a reserved instrument dropping off', function () {
-            return expect(new Promise(function (resolve) {
-                var firstClient = io.connect('http://0.0.0.0:' + app.port, {
-                    transports: ['websocket'],
-                    'force new connection': true
-                });
-                var secondClient = io.connect('http://0.0.0.0:' + app.port, {
-                    transports: ['websocket'],
-                    'force new connection': true
-                });
-
-                firstClient.on('connect', function () {
-                    supertest(app.server)
-                        .post('/instruments/drums')
-                        .expect('')
-                        .expect(204)
-                        .then(function () {
-                            firstClient.emit('reserved instrument', 'drums');
-                        });
-                });
-
-                var firstComplete = false;
-                secondClient.on('connect', function () {
-                    secondClient.on('instruments changed', function (instruments) {
-                        expect(instruments).to.deep.equal({
-                            drums: !firstComplete,
-                            bass: false,
-                            lead: false,
-                            rhythm: false
-                        });
-                        if (firstComplete) {
-                            resolve();
-                        }
-                        firstClient.disconnect();
-                        firstComplete = true;
-                        //TODO: Test that `instrument left` is fired.
-                    });
-                });
-            })).to.eventually.be.fulfilled();
-        });
-        it.skip('should be able to connect to the socket', function () {
-            return chai.expect(new Promise(function (resolve) {
-                var firstClient = io.connect('http://0.0.0.0:' + app.port, {
-                    transports: ['websocket'],
-                    'force new connection': true
-                });
-
-                firstClient.on('connect', function () {
-                    firstClient.emit('my other event', 'some event');
-                    firstClient.on('news', resolve);
-                });
-            })).to.eventually.deep.equal({
-                hello: 'world'
+            var firstClient = io.connect('http://0.0.0.0:' + app.port, {
+                transports: ['websocket'],
+                'force new connection': true
             });
+            var secondClient = io.connect('http://0.0.0.0:' + app.port, {
+                transports: ['websocket'],
+                'force new connection': true
+            });
+
+            firstClient.on('connect', function () {
+                supertest(app.server)
+                    .post('/instruments/drums')
+                    .expect('')
+                    .expect(204)
+                    .then(function () {
+                        firstClient.emit('reserved instrument', 'drums');
+                    });
+            });
+
+            return expect(Promise.all([
+                new Promise(function (resolve) {
+                    var firstComplete = false;
+                    secondClient.on('connect', function () {
+                        secondClient.on('instruments changed', function (instruments) {
+                            expect(instruments).to.deep.equal({
+                                drums: !firstComplete,
+                                bass: false,
+                                lead: false,
+                                rhythm: false
+                            });
+                            if (firstComplete) {
+                                resolve();
+                            }
+                            firstClient.disconnect();
+                            firstComplete = true;
+                        });
+                    });
+                }),
+                new Promise(function (resolve) {
+                    secondClient.on('connect', function () {
+                        secondClient.on('instrument left', function (instrument) {
+                            expect(instrument).to.equal('drums');
+                            resolve();
+                        });
+                    });
+                })
+            ])).to.eventually.be.fulfilled();
         });
     });
 }());
