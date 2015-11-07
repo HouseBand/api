@@ -2,14 +2,8 @@
     'use strict';
     // Dependencies
     const supertest = require('supertest-as-promised');
-    const io = require('socket.io-client');
-    const Promise = require('bluebird');
-    const chai = require('chai');
-    chai.use(require('chai-as-promised'));
-    chai.use(require('dirty-chai'));
 
     var app;
-    var expect = chai.expect;
 
     describe('Rooms', function () {
         beforeEach(function () {
@@ -73,7 +67,7 @@
                     return supertest(app.server)
                         .post('/rooms/fdsa')
                         .expect('')
-                        .expect(204)
+                        .expect(204);
                 })
                 .then(function () {
                     return supertest(app.server)
@@ -91,7 +85,7 @@
                     return supertest(app.server)
                         .delete('/rooms/asdf')
                         .expect('')
-                        .expect(204)
+                        .expect(204);
                 })
                 .then(function () {
                     return supertest(app.server)

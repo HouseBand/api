@@ -2,14 +2,8 @@
     'use strict';
     // Dependencies
     const supertest = require('supertest-as-promised');
-    const io = require('socket.io-client');
-    const Promise = require('bluebird');
-    const chai = require('chai');
-    chai.use(require('chai-as-promised'));
-    chai.use(require('dirty-chai'));
 
     var app;
-    var expect = chai.expect;
 
     describe('Room Instruments', function () {
         beforeEach(function () {
@@ -61,6 +55,28 @@
                         .post('/rooms/asdf/instruments/drums')
                         .expect('')
                         .expect(204);
+                });
+        });
+        it('shouldn\'t be able to reserve an already reserved instrument for a room', function () {
+            return supertest(app.server)
+                .post('/rooms/asdf')
+                .expect('')
+                .expect(204)
+                .then(function () {
+                    return supertest(app.server)
+                        .post('/rooms/asdf/instruments/drums')
+                        .expect('')
+                        .expect(204)
+                        .then(function () {
+                            return supertest(app.server)
+                                .post('/rooms/asdf/instruments/drums')
+                                .expect({
+                                    name: 'InstrumentNotAvailable',
+                                    message: 'The instrument drums has already been reserved',
+                                    statusCode: 412
+                                })
+                                .expect(412);
+                        });
                 });
         });
         it('shouldn\'t be able to reserve an instrument for a room that doesn\'t exist', function () {

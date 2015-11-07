@@ -11,7 +11,7 @@
     var app;
     var expect = chai.expect;
 
-    describe.only('Room Sockets', function () {
+    describe('Room Sockets', function () {
         beforeEach(function () {
             // Remove the singleton
             delete require.cache[require.resolve('../server')];
@@ -107,6 +107,10 @@
                         transports: ['websocket'],
                         'force new connection': true
                     });
+                    var thirdClient = io.connect('http://localhost:' + app.port + '/asdf', {
+                        transports: ['websocket'],
+                        'force new connection': true
+                    });
 
                     firstClient.on('connect', function () {
                         supertest(app.server)
@@ -133,6 +137,7 @@
                                         resolve();
                                     }
                                     firstClient.disconnect();
+                                    thirdClient.disconnect();
                                     firstComplete = true;
                                 });
                             });

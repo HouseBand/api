@@ -22,10 +22,6 @@
         port: process.env.REDIS_PORT
     });
 
-    redisClient.on("error", function (err) {
-        console.log("Error " + err);
-    });
-
     server.use(restify.CORS());
     server.use(restify.gzipResponse());
     server.use(restify.bodyParser());
@@ -84,7 +80,7 @@
                         name: 'RoomAlreadyExists',
                         message: 'The room ' + roomName + ' already exists',
                         statusCode: 419
-                    })
+                    });
                 }
 
                 rooms.push(roomName);
@@ -125,7 +121,7 @@
                     message: 'The room ' + roomName + ' was not found',
                     statusCode: 404
                 });
-            })
+            });
     });
 
     server.get('/rooms/:room/instruments', function (req, res) {
@@ -200,11 +196,8 @@
                 res.end();
             })
             .catch(function (reason) {
-                if (reason.statusCode) {
-                    res.status(reason.statusCode);
-                    return res.send(reason);
-                }
-                next(reason);
+                res.status(reason.statusCode);
+                return res.send(reason);
             });
     });
 
