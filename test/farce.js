@@ -156,7 +156,7 @@
                 });
 
                 var firstComplete = false;
-                secondClient.on('connect', function() {
+                secondClient.on('connect', function () {
                     secondClient.on('instruments changed', function (instruments) {
                         expect(instruments).to.deep.equal({
                             drums: !firstComplete,
@@ -164,8 +164,11 @@
                             lead: false,
                             rhythm: false
                         });
+                        if (firstComplete) {
+                            resolve();
+                        }
+                        firstClient.disconnect();
                         firstComplete = true;
-                        firstComplete && resolve();
                         //TODO: Test that `instrument left` is fired.
                     });
                 });

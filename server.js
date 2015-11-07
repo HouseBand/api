@@ -5,7 +5,7 @@
     const socketio = require('socket.io');
 
     // Configuration
-    const port = 8000;
+    const port = 8080;
     const burst = 100;
     const throttleRate = 50;
 
