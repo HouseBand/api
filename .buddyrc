@@ -2,7 +2,10 @@
   "enforceConst": false,
   "ignore": [
     0,
-    200
+    200,
+    204,
+    404,
+    412
   ],
   "reporter": "detailed"
 }
