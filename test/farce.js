@@ -107,32 +107,40 @@
                 });
         });
         it('should be notified of an instrument being reserved', function () {
-            return expect(new Promise(function (resolve) {
-                var firstClient = io.connect('http://0.0.0.0:' + app.port, {
-                    transports: ['websocket'],
-                    'force new connection': true
-                });
+            var firstClient = io.connect('http://0.0.0.0:' + app.port, {
+                transports: ['websocket'],
+                'force new connection': true
+            });
 
-                firstClient.on('connect', function () {
-                    supertest(app.server)
-                        .post('/instruments/drums')
-                        .expect('')
-                        .expect(204)
-                        .then(function () {
-                            firstClient.emit('reserved instrument', 'drums');
-                        });
+            return expect(Promise.all([
+                new Promise(function (resolve) {
+                    firstClient.on('connect', function () {
+                        supertest(app.server)
+                            .post('/instruments/drums')
+                            .expect('')
+                            .expect(204)
+                            .then(function () {
+                                firstClient.emit('reserved instrument', 'drums');
+                            });
 
-                    firstClient.on('instruments changed', function (instruments) {
-                        expect(instruments).to.deep.equal({
-                            drums: true,
-                            bass: false,
-                            lead: false,
-                            rhythm: false
+                        firstClient.on('instruments changed', function (instruments) {
+                            expect(instruments).to.deep.equal({
+                                drums: true,
+                                bass: false,
+                                lead: false,
+                                rhythm: false
+                            });
+                            resolve();
                         });
+                    });
+                }),
+                new Promise(function (resolve) {
+                    firstClient.on('instrument reserved', function (instrument) {
+                        expect(instrument).to.equal('drums');
                         resolve();
                     });
-                });
-            })).to.eventually.be.fulfilled();
+                })
+            ])).to.eventually.be.fulfilled();
         });
         it('should be notified of a user with a reserved instrument dropping off', function () {
             var firstClient = io.connect('http://0.0.0.0:' + app.port, {
@@ -174,11 +182,9 @@
                     });
                 }),
                 new Promise(function (resolve) {
-                    secondClient.on('connect', function () {
-                        secondClient.on('instrument left', function (instrument) {
-                            expect(instrument).to.equal('drums');
-                            resolve();
-                        });
+                    secondClient.on('instrument released', function (instrument) {
+                        expect(instrument).to.equal('drums');
+                        resolve();
                     });
                 })
             ])).to.eventually.be.fulfilled();

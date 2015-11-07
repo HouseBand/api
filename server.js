@@ -47,31 +47,33 @@
     });
 
     server.post('/instruments/:instrument', function (req, res) {
-        if (!(req.params.instrument in instruments)) {
+        var instrument = req.params.instrument;
+        if (!(instrument in instruments)) {
             res.status(404);
             res.send({
                 name: 'InstrumentNotFound',
-                message: 'The instrument ' + req.params.instrument + ' was not found',
+                message: 'The instrument ' + instrument + ' was not found',
                 statusCode: 404
             });
-        } else if (instruments[req.params.instrument]) {
+        } else if (instruments[instrument]) {
             res.status(412);
             return res.send({
                 name: 'InstrumentNotAvailable',
-                message: 'The instrument ' + req.params.instrument + ' has already been reserved',
+                message: 'The instrument ' + instrument + ' has already been reserved',
                 statusCode: 412
             });
         }
 
-        instruments[req.params.instrument] = true;
-        instrumentSubscriptionChanged();
+        instruments[instrument] = true;
+        instrumentSubscriptionChanged(instrument);
         res.status(204);
         res.end();
     });
 
     server.del('/instruments/:instrument', function (req, res) {
-        instruments[req.params.instrument] = false;
-        instrumentSubscriptionChanged();
+        let instrument = req.params.instrument;
+        instruments[instrument] = false;
+        instrumentSubscriptionChanged(instrument);
         res.status(204);
         res.end();
     });
@@ -90,7 +92,7 @@
                 if (instruments[instrument] === socket.id) {
                     instruments[instrument] = false;
                     socket.broadcast.emit('instruments changed', instruments);
-                    socket.broadcast.emit('instrument left', instrument);
+                    socket.broadcast.emit('instrument released', instrument);
                 }
             });
         });
@@ -100,9 +102,11 @@
         console.log('socket.io server listening at %s', server.url);
     });
 
-    function instrumentSubscriptionChanged() {
-        Object.keys(sockets).forEach(function (socket) {
-            sockets[socket].emit('instruments changed', instruments);
+    function instrumentSubscriptionChanged(instrument) {
+        Object.keys(sockets).forEach(function (socketId) {
+            let socket = sockets[socketId];
+            socket.emit('instrument reserved', instrument);
+            socket.emit('instruments changed', instruments);
         });
     }
 
