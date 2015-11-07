@@ -233,5 +233,42 @@
                 })
             ])).to.eventually.be.fulfilled();
         });
+        it('should be able to issue play commands for an instrument', function () {
+            var firstClient = io.connect('http://0.0.0.0:' + app.port, {
+                transports: ['websocket'],
+                'force new connection': true
+            });
+            var secondClient = io.connect('http://0.0.0.0:' + app.port, {
+                transports: ['websocket'],
+                'force new connection': true
+            });
+
+            firstClient.on('connect', function () {
+                secondClient.on('connect', function () {
+                    firstClient.emit('play drums', {
+                        file: 'someFile.mp3'
+                    });
+                });
+            });
+
+            return expect(Promise.all([
+                new Promise(function (resolve) {
+                    firstClient.on('drums played', function (sound) {
+                        expect(sound).to.deep.equal({
+                            file: 'someFile.mp3'
+                        });
+                        resolve();
+                    });
+                }),
+                new Promise(function (resolve) {
+                    secondClient.on('drums played', function (sound) {
+                        expect(sound).to.deep.equal({
+                            file: 'someFile.mp3'
+                        });
+                        resolve();
+                    });
+                })
+            ])).to.eventually.be.fulfilled();
+        });
     });
 }());

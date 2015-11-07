@@ -91,9 +91,15 @@
             Object.keys(instruments).forEach(function (instrument) {
                 if (instruments[instrument] === socket.id) {
                     instruments[instrument] = false;
-                    socket.broadcast.emit('instruments changed', instruments);
-                    socket.broadcast.emit('instrument released', instrument);
+                    broadcastEvent('instruments changed', instruments);
+                    broadcastEvent('instrument released', instrument);
                 }
+            });
+        });
+
+        Object.keys(instruments).forEach(function (instrument) {
+            socket.on('play ' + instrument, function (sound) {
+                broadcastEvent(instrument + ' played', sound);
             });
         });
     });
@@ -103,10 +109,14 @@
     });
 
     function instrumentSubscriptionChanged(instrument, action) {
+        broadcastEvent('instrument ' + action, instrument);
+        broadcastEvent('instruments changed', instruments);
+    }
+
+    function broadcastEvent(name, data) {
         Object.keys(sockets).forEach(function (socketId) {
             let socket = sockets[socketId];
-            socket.emit('instrument ' + action, instrument);
-            socket.emit('instruments changed', instruments);
+            socket.emit(name, data);
         });
     }
 
