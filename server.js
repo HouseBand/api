@@ -283,7 +283,7 @@
                         io.of('/' + roomName).emit('instruments changed', room);
                     })
                     .return(room);
-            });
+            }).catch(console.log);
     }
 
     function setupRoom(roomName) {
