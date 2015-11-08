@@ -50,6 +50,19 @@
         rhythm: false
     };
 
+    console.log('Setting up current rooms');
+    redisClient
+        .getAsync('rooms')
+        .then(JSON.parse)
+        .then(function (rooms) {
+            rooms = rooms || [];
+
+            rooms.forEach(function(room) {
+                console.log('Setting up ' + room + ' from Redis');
+               setupRoom(room);
+            });
+        });
+
     server.get('/flush', function (req, res) {
         console.log('Flushing Current State');
         redisClient
