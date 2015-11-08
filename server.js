@@ -5,7 +5,7 @@
     const socketio = require('socket.io');
     const redis = require('redis');
     const Promise = require('bluebird');
-    const socketIORedis = require('socket.io-redis');
+    //const socketIORedis = require('socket.io-redis');
 
     // Setup Redis client with promises
     Promise.promisifyAll(redis.RedisClient.prototype);
@@ -22,7 +22,7 @@
         host: process.env.REDIS_HOST,
         port: process.env.REDIS_PORT
     });
-    io.adapter(socketIORedis({host: process.env.REDIS_HOST, port: process.env.REDIS_PORT}));
+    //io.adapter(socketIORedis({host: process.env.REDIS_HOST, port: process.env.REDIS_PORT}));
 
     server.use(restify.CORS());
     server.use(restify.gzipResponse());
