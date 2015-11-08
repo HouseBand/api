@@ -72,9 +72,11 @@
                                         rhythm: false
                                     });
                                     if (firstComplete) {
+                                        firstComplete = false;
                                         resolve();
+                                    } else {
+                                        firstComplete = true;
                                     }
-                                    firstComplete = true;
                                 });
                             });
                         }),

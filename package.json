@@ -22,7 +22,8 @@
     "bluebird": "^3.0.5",
     "redis": "^2.3.0",
     "restify": "^4.x",
-    "socket.io": "^1.x"
+    "socket.io": "^1.x",
+    "socket.io-redis": "^0.1.4"
   },
   "devDependencies": {
     "buddy.js": "^0.x",
