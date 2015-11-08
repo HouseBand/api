@@ -57,11 +57,15 @@
         .then(function (rooms) {
             rooms = rooms || [];
 
-            rooms.forEach(function(room) {
+            rooms.forEach(function (room) {
                 console.log('Setting up ' + room + ' from Redis');
-               setupRoom(room);
+                setupRoom(room);
             });
         });
+
+    redisClient.on('error', function (err) {
+        console.log('Redis Error ' + err);
+    });
 
     server.get('/flush', function (req, res) {
         console.log('Flushing Current State');
@@ -71,6 +75,14 @@
                 res.status(204);
                 res.end();
             });
+        Object.keys(io.nsps).forEach(function (namespace) {
+            if (namespace === '/') {
+                return;
+            }
+            console.log('Tearing down ' + namespace + ' because of flush');
+            delete io.nsps[namespace];
+            delete roomNamespaces[namespace];
+        });
     });
 
     server.get('/rooms', function (req, res, next) {
@@ -221,7 +233,7 @@
             });
     });
 
-    server.del('/rooms/:room/instruments/:instrument', function (req, res, next) {
+    server.del('/rooms/:room/instruments/:instrument', function (req, res) {
         let roomName = req.params.room;
         var instrumentName = req.params.instrument;
         console.log('Releasing ' + instrumentName + ' in ' + roomName);
@@ -283,7 +295,7 @@
                         io.of('/' + roomName).emit('instruments changed', room);
                     })
                     .return(room);
-            }).catch(console.log);
+            });
     }
 
     function setupRoom(roomName) {
@@ -330,6 +342,7 @@
 
     module.exports = {
         server: server,
-        port: process.env.PORT || port
+        port: process.env.PORT || port,
+        redisClient: redisClient
     };
 }());

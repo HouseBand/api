@@ -38,16 +38,16 @@
                 });
         });
         it('should be notified of an instrument being released', function () {
-            var firstClient = io.connect('http://localhost:' + app.port + '/asdf', {
-                transports: ['websocket'],
-                'force new connection': true
-            });
-
             return supertest(app.server)
                 .post('/rooms/asdf')
                 .expect('')
                 .expect(204)
                 .then(function () {
+                    var firstClient = io.connect('http://localhost:' + app.port + '/asdf', {
+                        transports: ['websocket'],
+                        'force new connection': true
+                    });
+
                     return expect(Promise.all([
                         new Promise(function (resolve) {
                             firstClient.on('connect', function () {
@@ -72,11 +72,9 @@
                                         rhythm: false
                                     });
                                     if (firstComplete) {
-                                        firstComplete = false;
                                         resolve();
-                                    } else {
-                                        firstComplete = true;
                                     }
+                                    firstComplete = !firstComplete;
                                 });
                             });
                         }),
@@ -92,7 +90,10 @@
                                 resolve();
                             });
                         })
-                    ])).to.eventually.be.fulfilled();
+                    ])).to.eventually.be.fulfilled()
+                        .then(function () {
+                            firstClient.disconnect();
+                        });
                 });
         });
         it('should be notified of a user with a reserved instrument dropping off', function () {
@@ -150,7 +151,11 @@
                                 resolve();
                             });
                         })
-                    ])).to.eventually.be.fulfilled();
+                    ])).to.eventually.be.fulfilled().then(function () {
+                        firstClient.disconnect();
+                        secondClient.disconnect();
+                        thirdClient.disconnect();
+                    });
                 });
         });
         it('should be able to issue play commands for an instrument', function () {
@@ -206,7 +211,10 @@
                                     resolve();
                                 });
                             })
-                        ])).to.eventually.be.fulfilled();
+                        ])).to.eventually.be.fulfilled().then(function () {
+                            firstClient.disconnect();
+                            secondClient.disconnect();
+                        });
                     });
                 });
         });
