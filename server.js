@@ -264,6 +264,9 @@
                 socket.on('play ' + instrument, function (sound) {
                     io.of('/' + roomName).emit(instrument + ' played', sound);
                 });
+                socket.on('stop ' + instrument, function (sound) {
+                    io.of('/' + roomName).emit(instrument + ' stopped', sound);
+                });
             });
         });
     }

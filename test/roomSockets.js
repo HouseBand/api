@@ -172,6 +172,9 @@
                                 firstClient.emit('play drums', {
                                     file: 'someFile.mp3'
                                 });
+                                secondClient.emit('stop drums', {
+                                    file: 'someFile.mp3'
+                                });
                                 resolve();
                             });
                         });
@@ -179,6 +182,14 @@
                         return expect(Promise.all([
                             new Promise(function (resolve) {
                                 firstClient.on('drums played', function (sound) {
+                                    expect(sound).to.deep.equal({
+                                        file: 'someFile.mp3'
+                                    });
+                                    resolve();
+                                });
+                            }),
+                            new Promise(function (resolve) {
+                                firstClient.on('drums stopped', function (sound) {
                                     expect(sound).to.deep.equal({
                                         file: 'someFile.mp3'
                                     });
